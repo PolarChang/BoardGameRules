@@ -12,7 +12,7 @@ CORPUS_FILE = DB_DIR / "corpus.json"
 
 # ── 向量資料庫 ──
 COLLECTION_NAME = "rulebooks"
-EMBED_MODEL_NAME = "BAAI/bge-m3"
+EMBED_MODEL_NAME = "intfloat/multilingual-e5-small"
 
 # ── Chunking（ingest.py） ──
 CHUNK_SIZE = 1024
@@ -60,5 +60,5 @@ NOISE_PATTERNS = [
 MIN_CHUNK_CHARS = 100
 
 # ── Cross-encoder Re-ranker ──
-USE_RE_RANKER = True
+USE_RE_RANKER = False  # 關閉 Re-ranker 以節省記憶體
 RE_RANKER_MODEL = "BAAI/bge-reranker-v2-m3"
