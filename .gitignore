@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.env.local
+
+# Database / Index
+db/
+*.sqlite3
+*.db
+
+# Preprocessed data
+data/preprocessed/
+
+# Node.js (for Next.js project)
+node_modules/
+.next/
+out/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/

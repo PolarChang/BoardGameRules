@@ -1,0 +1,35 @@
+# Board Game RAG Engine - Dependencies
+# Web Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+
+# Core RAG Framework
+llama-index>=0.12.0
+llama-index-embeddings-huggingface>=0.5.0
+
+# Vector Database
+chromadb>=0.5.0
+llama-index-vector-stores-chroma>=0.4.0
+
+# PDF Parsing
+pymupdf>=1.24.0
+
+# PDF → Image (for LLM Vision preprocessing)
+pdf2image>=1.17.0
+
+# LLM Vision Providers
+openai>=1.0.0
+anthropic>=0.40.0
+
+# Translation
+deep-translator>=1.11.0
+
+# Chinese Tokenization (for BM25)
+jieba>=0.42.0
+
+# Hybrid Search (BM25 + Vector)
+rank_bm25>=0.2.0
+
+# Utilities
+tqdm>=4.66.0

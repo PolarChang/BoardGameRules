@@ -1,0 +1,26 @@
+# Python virtual environments
+.venv/
+.venv-1/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js
+node_modules/
+.next/
+out/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large data files (will be generated on server)
+data/preprocessed/
