@@ -213,6 +213,11 @@ templates_dir = BASE_DIR / "templates"
 templates_dir.mkdir(exist_ok=True)
 
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "index_loaded": index is not None}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index_page():
     html_file = templates_dir / "index.html"
