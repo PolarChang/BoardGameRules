@@ -100,8 +100,16 @@ async def startup():
         # 預先載入 BM25 與 Re-ranker，確保 Web 伺服器啟動後回應快速
         get_bm25_engine()
         get_reranker()
+        logger.info("✅ 啟動完成，向量索引已載入")
+    except SystemExit:
+        logger.warning("⚠️ 啟動時索引載入失敗：找不到 db/ 目錄，請先執行 ingest 建立索引")
+        index = None
     except RuntimeError as e:
         logger.warning(f"⚠️ 啟動時索引載入失敗: {e}")
+        index = None
+    except Exception as e:
+        logger.warning(f"⚠️ 啟動時發生未預期錯誤: {e}")
+        index = None
 
 
 @app.get("/api/games", response_model=GameListResponse)

@@ -236,7 +236,24 @@ def build_vector_index(documents: list[Document]) -> VectorStoreIndex:
     db_dir = str(DB_DIR)
     os.makedirs(db_dir, exist_ok=True)
     db = chromadb.PersistentClient(path=db_dir)
-    chroma_collection = db.get_or_create_collection(COLLECTION_NAME)
+    
+    # 檢查現有 collection 的 embedding 維度是否匹配
+    try:
+        existing_collection = db.get_collection(COLLECTION_NAME)
+        # 嘗試用一個測試 embedding 來檢查維度
+        test_embedding = [0.0] * 384  # multilingual-e5-small 的維度
+        existing_collection.add(ids=["__dimension_test__"], embeddings=[test_embedding], documents=[""])
+        existing_collection.delete(ids=["__dimension_test__"])
+        logger.info(f"   ✅ 現有 collection 維度匹配，繼續使用")
+        chroma_collection = existing_collection
+    except Exception as e:
+        if "dimension" in str(e).lower() or "expecting embedding" in str(e).lower():
+            logger.warning(f"   ⚠️ 現有 collection embedding 維度不符，將重建 collection")
+            db.delete_collection(COLLECTION_NAME)
+            chroma_collection = db.get_or_create_collection(COLLECTION_NAME)
+        else:
+            raise
+    
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 

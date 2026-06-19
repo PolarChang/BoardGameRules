@@ -527,9 +527,9 @@ def load_index() -> VectorStoreIndex:
     """載入 ChromaDB 中的向量索引。"""
     db_dir = str(DB_DIR)
     if not Path(db_dir).exists():
-        logger.error(f"❌ ChromaDB 目錄不存在: {db_dir}")
-        logger.error("   請先執行 python src/ingest.py 建立索引！")
-        sys.exit(1)
+        raise FileNotFoundError(
+            f"ChromaDB 目錄不存在: {db_dir}，請先執行 python main.py ingest 建立索引"
+        )
 
     db = chromadb.PersistentClient(path=db_dir)
     chroma_collection = db.get_or_create_collection(COLLECTION_NAME)
