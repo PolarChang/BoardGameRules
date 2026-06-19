@@ -8,9 +8,9 @@ venv/
 .env.local
 
 # Database / Index
-db/
-*.sqlite3
-*.db
+# db/ 已提交到 Git 以支援 Railway 部署（包含 ChromaDB 向量索引）
+# *.sqlite3
+# *.db
 
 # Preprocessed data
 data/preprocessed/
