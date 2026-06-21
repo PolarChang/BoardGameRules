@@ -12,7 +12,12 @@ CORPUS_FILE = DB_DIR / "corpus.json"
 
 # ── 向量資料庫 ──
 COLLECTION_NAME = "rulebooks"
-EMBED_MODEL_NAME = "intfloat/multilingual-e5-small"
+
+# 使用 OpenAI Embedding API（大幅減少記憶體用量，適合 Render 免費方案）
+# 若沒有設定 OPENAI_API_KEY 環境變數，會自動降級為本機 HuggingFace 模型
+EMBED_MODEL_NAME = "text-embedding-3-small"       # OpenAI API 用的模型
+HF_EMBED_MODEL_NAME = "intfloat/multilingual-e5-small"  # 本機 HuggingFace 用的模型
+EMBED_TYPE = "openai"  # "openai" 或 "huggingface"
 
 # ── Chunking（ingest.py） ──
 CHUNK_SIZE = 1024
@@ -44,7 +49,6 @@ NOISE_PATTERNS = [
     r'lead\s+(your\s+)?class\s+to\s+victory',
     r'^\s*components?\s*$',
     r'(hegemony|rulebook|rules)\s*v?\d+\.?\d*',
-    # 元件列表（多行連續的 "數量 項目名稱" 模式）
     r'^\d+\s+(GAME\s+)?BOARD',
     r'^\d+\s+PLAYER\s+BOARDS',
     r'^\d+\s+REGULAR\s+CARDS',

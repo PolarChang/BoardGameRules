@@ -32,14 +32,13 @@ import numpy as np
 from llama_index.core import Settings, StorageContext, VectorStoreIndex
 from llama_index.core import PromptTemplate
 from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from rank_bm25 import BM25Okapi
 
 # 集中設定
 from src.config import (
     BASE_DIR, DB_DIR, CORPUS_FILE,
-    COLLECTION_NAME, EMBED_MODEL_NAME,
+    COLLECTION_NAME, EMBED_MODEL_NAME, HF_EMBED_MODEL_NAME, EMBED_TYPE,
     SIMILARITY_TOP_K, HYBRID_WEIGHT_VECTOR, HYBRID_WEIGHT_BM25, RRF_K,
     MMR_LAMBDA, MMR_TOP_K,
     SHORT_QUERY_THRESHOLD, SHORT_QUERY_BM25_WEIGHT, LONG_QUERY_VECTOR_WEIGHT,
@@ -536,7 +535,17 @@ def load_index() -> VectorStoreIndex:
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL_NAME)
+    logger.info(f"🧠 載入 Embedding 模型: {EMBED_MODEL_NAME} (type={EMBED_TYPE})")
+    if EMBED_TYPE == "openai" and os.environ.get("OPENAI_API_KEY"):
+        from llama_index.embeddings.openai import OpenAIEmbedding
+        embed_model = OpenAIEmbedding(model=EMBED_MODEL_NAME)
+        logger.info("   ✅ 使用 OpenAI Embedding API（低記憶體模式）")
+    else:
+        if EMBED_TYPE == "openai" and not os.environ.get("OPENAI_API_KEY"):
+            logger.warning("   ⚠️ OPENAI_API_KEY 未設定，自動降級為本機 HuggingFace Embedding")
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        embed_model = HuggingFaceEmbedding(model_name=HF_EMBED_MODEL_NAME)
+        logger.info(f"   ✅ 使用本機 HuggingFace Embedding: {HF_EMBED_MODEL_NAME}")
     Settings.embed_model = embed_model
 
     index = VectorStoreIndex.from_vector_store(
@@ -545,7 +554,7 @@ def load_index() -> VectorStoreIndex:
         embed_model=embed_model,
     )
 
-    logger.info(f"✅ 索引載入完成 (collection: {COLLECTION_NAME})")
+    logger.info(f"✅ 索引載入完成 (collection: {COLLECTION_NAME}, embed_type={EMBED_TYPE})")
     return index
 
 

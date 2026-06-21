@@ -22,7 +22,6 @@ import chromadb
 import fitz  # PyMuPDF
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from tqdm import tqdm
 
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 # 集中設定
 from src.config import (
     BASE_DIR, DATA_DIR, DB_DIR, CORPUS_FILE,
-    COLLECTION_NAME, EMBED_MODEL_NAME,
+    COLLECTION_NAME, EMBED_MODEL_NAME, HF_EMBED_MODEL_NAME, EMBED_TYPE,
     CHUNK_SIZE, CHUNK_OVERLAP,
 )
 
@@ -257,8 +256,17 @@ def build_vector_index(documents: list[Document]) -> VectorStoreIndex:
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    logger.info(f"🧠 載入 Embedding 模型: {EMBED_MODEL_NAME}")
-    embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL_NAME)
+    logger.info(f"🧠 載入 Embedding 模型: {EMBED_MODEL_NAME} (type={EMBED_TYPE})")
+    if EMBED_TYPE == "openai" and os.environ.get("OPENAI_API_KEY"):
+        from llama_index.embeddings.openai import OpenAIEmbedding
+        embed_model = OpenAIEmbedding(model=EMBED_MODEL_NAME)
+        logger.info("   ✅ 使用 OpenAI Embedding API（低記憶體模式）")
+    else:
+        if EMBED_TYPE == "openai" and not os.environ.get("OPENAI_API_KEY"):
+            logger.warning("   ⚠️ OPENAI_API_KEY 未設定，自動降級為本機 HuggingFace Embedding")
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        embed_model = HuggingFaceEmbedding(model_name=HF_EMBED_MODEL_NAME)
+        logger.info(f"   ✅ 使用本機 HuggingFace Embedding: {HF_EMBED_MODEL_NAME}")
 
     node_parser = SentenceSplitter(
         chunk_size=CHUNK_SIZE,
