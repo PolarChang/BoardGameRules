@@ -13,10 +13,12 @@ v3 改進：
 
 本檔案為 Web 層，核心邏輯委託給 src/query.py，避免重複程式碼。
 """
+import asyncio
 import json
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # 確保專案根目錄在 sys.path 中
@@ -69,6 +71,10 @@ CORPUS_FILE = DB_DIR / "corpus.json"
 
 # ── 全域 ────────────────────────────────────────────────────────────
 index = None
+_index_ready = False
+_index_loading = False
+_index_error: Exception | None = None
+executor = ThreadPoolExecutor(max_workers=1)
 
 # ── Pydantic 模型 ─────────────────────────────────────────────────
 class QueryRequest(BaseModel):
@@ -94,22 +100,41 @@ app = FastAPI(title="Board Game Rules RAG Engine v3")
 
 @app.on_event("startup")
 async def startup():
-    global index
+    """啟動事件：背景非同步載入索引，不阻塞 event loop。"""
+    global _index_loading
+    
+    db_dir = str(DB_DIR)
+    if not Path(db_dir).exists():
+        logger.warning("⚠️ db/ 目錄不存在，跳過啟動載入（請先執行 ingest）")
+        return
+    
+    _index_loading = True
+    asyncio.create_task(_async_load_index())
+    logger.info("🚀 伺服器已啟動，索引正在背景載入中...")
+    logger.info("   （health check 立即回應，不阻塞）")
+
+
+async def _async_load_index():
+    """在背景執行緒中載入索引，避免阻塞 event loop。"""
+    global index, _index_ready, _index_loading, _index_error
+    
+    loop = asyncio.get_event_loop()
     try:
-        index = load_index()
-        # 預先載入 BM25 與 Re-ranker，確保 Web 伺服器啟動後回應快速
-        get_bm25_engine()
-        get_reranker()
-        logger.info("✅ 啟動完成，向量索引已載入")
+        index = await loop.run_in_executor(executor, load_index)
+        await loop.run_in_executor(executor, get_bm25_engine)
+        await loop.run_in_executor(executor, get_reranker)
+        _index_ready = True
+        logger.info("✅ 背景載入完成，向量索引已載入")
     except SystemExit:
-        logger.warning("⚠️ 啟動時索引載入失敗：找不到 db/ 目錄，請先執行 ingest 建立索引")
-        index = None
+        logger.warning("⚠️ 背景載入：找不到 db/ 目錄")
     except RuntimeError as e:
-        logger.warning(f"⚠️ 啟動時索引載入失敗: {e}")
-        index = None
+        _index_error = e
+        logger.warning(f"⚠️ 背景載入失敗: {e}")
     except Exception as e:
-        logger.warning(f"⚠️ 啟動時發生未預期錯誤: {e}")
-        index = None
+        _index_error = e
+        logger.warning(f"⚠️ 背景載入發生未預期錯誤: {e}")
+    finally:
+        _index_loading = False
 
 
 @app.get("/api/games", response_model=GameListResponse)
@@ -119,6 +144,21 @@ async def api_games():
 
 @app.post("/api/query", response_model=QueryResponse)
 async def api_query(req: QueryRequest):
+    # 等待索引載入完成（最長 300 秒）
+    if not _index_ready:
+        if _index_error:
+            raise HTTPException(status_code=503, detail=f"索引載入失敗: {_index_error}")
+        if index is None:
+            logger.info("⏳ 等待索引載入中...")
+            for _ in range(300):
+                if _index_ready or not _index_loading:
+                    break
+                await asyncio.sleep(1)
+            if not _index_ready:
+                if _index_error:
+                    raise HTTPException(status_code=503, detail=f"索引載入失敗: {_index_error}")
+                raise HTTPException(status_code=503, detail="索引載入超時，請稍後再試")
+
     if index is None:
         raise HTTPException(status_code=503, detail="索引尚未載入")
 
@@ -215,7 +255,12 @@ templates_dir.mkdir(exist_ok=True)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "index_loaded": index is not None}
+    """Health check — 總是立即回應 200，不依賴索引載入狀態。"""
+    return {
+        "status": "ok",
+        "index_loaded": _index_ready,
+        "index_loading": _index_loading,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
