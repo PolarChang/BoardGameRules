@@ -3,12 +3,61 @@ config.py — Board Game RAG Engine 集中設定檔
 
 所有共用設定集中在這裡，避免 app.py / query.py / ingest.py 重複定義。
 """
+import os
+from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote_plus
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
-DB_DIR = BASE_DIR / "db"
+# An explicit absolute root lets a restored installation run without touching
+# the normal database, source files, indexes, or inference queue.
+_runtime_root = os.getenv('KNOWLEDGE_LOCAL_ROOT')
+if _runtime_root and not Path(_runtime_root).is_absolute():
+    raise ValueError('KNOWLEDGE_LOCAL_ROOT must be an absolute path')
+LOCAL_ROOT = Path(_runtime_root).resolve() if _runtime_root else BASE_DIR
+DATA_DIR = LOCAL_ROOT / "data"
+DB_DIR = LOCAL_ROOT / "db"
 CORPUS_FILE = DB_DIR / "corpus.json"
+
+
+@dataclass(frozen=True)
+class CloudSettings:
+    """Runtime configuration shared by local development and Cloud Run."""
+
+    database_url: str | None
+    storage_bucket: str | None
+
+    @property
+    def uses_postgres(self) -> bool:
+        return bool(self.database_url)
+
+    @property
+    def uses_cloud_storage(self) -> bool:
+        return bool(self.storage_bucket)
+
+
+def get_cloud_settings() -> CloudSettings:
+    """Build a PostgreSQL URL only when all Cloud SQL variables are supplied.
+
+    Cloud Run injects ``DB_PASSWORD`` from Secret Manager.  The password is
+    intentionally never stored in source control or a local configuration file.
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        host = os.getenv("DB_HOST")
+        name = os.getenv("DB_NAME")
+        user = os.getenv("DB_USER")
+        password = os.getenv("DB_PASSWORD")
+        if all((host, name, user, password)):
+            database_url = (
+                f"postgresql://{quote_plus(user)}:{quote_plus(password)}@/{quote_plus(name)}"
+                f"?host={quote_plus(host)}"
+            )
+
+    return CloudSettings(
+        database_url=database_url,
+        storage_bucket=os.getenv("RULEBOOK_STORAGE_BUCKET") or None,
+    )
 
 # ── 向量資料庫 ──
 COLLECTION_NAME = "rulebooks"
