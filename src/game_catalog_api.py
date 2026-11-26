@@ -1,6 +1,7 @@
 """Game selection endpoints shared by local and full knowledge services."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from src.database import get_all_games, get_game, create_game
+from src.editorial_api import admin
 from src.models import Game
 
 router = APIRouter(tags=["knowledge"])
@@ -28,8 +29,9 @@ async def api_list_games():
 
 
 @router.post("/games")
-async def api_create_game(game: Game):
-    """建立遊戲。"""
+async def api_create_game(game: Game, x_knowledge_admin: str = Header(default="")):
+    """建立遊戲（需管理員授權）。"""
+    admin(x_knowledge_admin)
     existing = get_game(game.id)
     if existing:
         raise HTTPException(status_code=400, detail=f"遊戲已存在: {game.id}")
